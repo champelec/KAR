@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Code Review - KUMA</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AI Code Reviewer (PoC)</h1>
+        <p>Вставьте ваш код для автоматической проверки безопасности и стиля.</p>
+        
+        <!-- Шаг 1: Пользователь вставляет блок кода -->
+        <textarea id="codeInput" placeholder="Введите код сюда..."></textarea>
+        
+        <!-- Шаг 2: Пользователь нажимает кнопку -->
+        <button id="submitBtn">Отправить на ревью</button>
+        
+        <!-- Индикация загрузки (пока ждем ответа от мока) -->
+        <div id="loader" class="hidden">Анализируем код... ⏳</div>
+        
+        <!-- Шаг 3: Вывод результатов -->
+        <div id="resultBox" class="hidden">
+            <h3>Результат ревью:</h3>
+            <pre id="reviewOutput"></pre>
+        </div>
+    </div>
+
+    <!-- Подключаем нашу логику как модуль -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
