@@ -1,6 +1,6 @@
 // src/api/openai.js
 
-// Мок по подобию  OpenAI
+// Мок по подобию OpenAI
 export const openai = {
     chat: {
         completions: {
@@ -11,7 +11,18 @@ export const openai = {
                 const userMessage = requestData.messages.find(msg => msg.role === 'user');
                 const userCode = userMessage ? userMessage.content : '';
 
-                // Моя фича (список  опасных паттернов для статического анализа)
+                // Простой фильтр абракадабры:
+                if (userCode.trim().length < 5 || !/[{}();=]/.test(userCode)) {
+                    return {
+                        choices: [{
+                            message: {
+                                content: "ОШИБКА ФОРМАТА: Текст не распознан как код. Пожалуйста, отправьте валидный скрипт (например, добавьте скобки или знаки равенства)."
+                            }
+                        }]
+                    };
+                }
+
+                // Моя фича (список опасных паттернов для статического анализа)
                 const dangerousPatterns = [
                     'eval(', 
                     'innerHTML', 
