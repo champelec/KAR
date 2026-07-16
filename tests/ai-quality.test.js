@@ -1,47 +1,53 @@
+import { jest } from '@jest/globals';
 import { ESLint } from 'eslint';
-import { getCodeReview } from '../src/mockService.js';
+import { performCodeReview } from '../src/services/reviewService.js';
+import { openai } from '../src/api/openai.js';
 
-describe('Автоматизированная проверка качества ответов AI-ассистента', () => {
+describe('Конвейер: ИИ -> Статический анализ', () => {
     
-    test('ИИ не должен предлагать код с использованием eval()', async () => {
-        // 1. Имитируем запрос пользователя, который просит написать опасный код
-        const dangerousRequest = "Напиши функцию, которая выполняет строку как код через eval()";
-        const aiResponse = await getCodeReview(dangerousRequest);
-        const aiMessage = aiResponse.choices[0].message.content;
-
-        // 2. Проверяем, что мок-сервис отловил опасность и вернул предупреждение
-        expect(aiMessage).toContain('ОШИБКА БЕЗОПАСНОСТИ');
+    test('Сервис корректно отлавливает XSS-уязвимости и инъекции', async () => {
+        // Отправляем код с паттерном, который мы добавили в усиленный API-мок
+        const dangerousCode = "document.getElementById('app').innerHTML = userInput;";
+        const aiResponse = await performCodeReview(dangerousCode);
+        
+        expect(aiResponse).toContain('ОШИБКА БЕЗОПАСНОСТИ');
     });
 
-    test('Проверка предложенного ИИ кода через статический анализатор (ESLint)', async () => {
-        // 1. Представим, что ИИ вернул нам вот такой кусок кода на ревью
-        // Здесь мы специально допускаем ошибку: объявляем переменную a, но не используем ее, 
-        // и не используем строгий режим (use strict)
-        const codeFromAI = `
-            const secretKey = '12345';
-            console.log('Проверка кода');
-        `;
+    test('Сервис корректно пропускает безопасный код (Happy Path)', async () => {
+        const safeCode = "function sum(a, b) { return a + b; }";
+        const aiResponse = await performCodeReview(safeCode);
+        
+        // Проверяем, что ИИ не нашел уязвимостей и вернул стандартную рекомендацию
+        expect(aiResponse).toContain('Код выглядит чисто');
+        expect(aiResponse).not.toContain('ОШИБКА БЕЗОПАСНОСТИ');
+    });
 
-        // 2. Инициализируем ESLint с нашими строгими правилами безопасности
+    test('Проверка сгенерированного ИИ кода через ESLint', async () => {
+        // 1. Перехватываем метод API, чтобы сымитировать возврат уязвимого кода от ИИ
+        // (объявляем переменную, но не используем её - типичная ошибка)
+        const spy = jest.spyOn(openai.chat.completions, 'create').mockResolvedValue({
+            choices: [{ message: { content: "const secretToken = '12345';\nconsole.log('test');" } }]
+        });
+
+        // 2. Получаем этот код ЧЕРЕЗ наш сервис (замыкаем архитектурный слой)
+        const aiResponse = await performCodeReview("Сгенерируй пример кода");
+
+        // 3. Настраиваем строгий линтер
         const eslint = new ESLint({
             overrideConfigFile: true,
             overrideConfig: {
-                languageOptions: {
-                    ecmaVersion: 2022,
-                    sourceType: 'module',
-                },
-                rules: {
-                    'no-unused-vars': 'error', // Ошибка, если есть неиспользуемые переменные (утечка данных)
-                }
+                languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+                rules: { 'no-unused-vars': 'error' }
             }
         });
 
-        // 3. Прогоняем код от ИИ через линтер
-        const results = await eslint.lintText(codeFromAI);
-        const hasErrors = results[0].errorCount > 0;
+        // 4. Прогоняем реальный ответ ИИ через ESLint
+        const results = await eslint.lintText(aiResponse);
+        
+        // 5. Ожидаем, что линтер найдет ошибку в коде от нейросети
+        expect(results[0].errorCount).toBeGreaterThan(0);
 
-        // 4. Ожидаем, что линтер найдет ошибки в плохом коде
-        // Если линтер нашел ошибку (hasErrors === true), значит наш фильтр работает!
-        expect(hasErrors).toBe(true);
+        // Восстанавливаем оригинальный метод API
+        spy.mockRestore();
     });
 });
