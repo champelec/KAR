@@ -20,17 +20,6 @@
 2. Запустите локальный сервер для просмотра интерфейса:
    `npx serve src`
    (Затем откройте `http://localhost:3000` в браузере)
-   можно ввести для теста разные коды:
-   function calculateSum(a, b) {
-    let result = a + b;
-    return result;
-   }
-   console.log(calculateSum(5, 10));
-
-   или
-
-   const userInput = "console.log('Взлом системы!')";
-   eval(userInput);
-
+   
 4. Запустите автоматизированные тесты (проверка сценариев AI):
    `npm test`
